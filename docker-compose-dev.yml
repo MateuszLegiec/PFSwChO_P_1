@@ -1,0 +1,54 @@
+version: '3'
+services:
+  ui:
+    stdin_open: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    build:
+      context: ui
+      dockerfile: Dockerfile.dev
+    ports:
+      - '3000:3000'
+    volumes:
+      - /app/node_modules
+      - .:/app
+  main-service:
+    image: main-service:0.0.1-SNAPSHOT
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    depends_on:
+      - redis
+      - db
+      - rabbit
+    environment:
+      - spring.redis.host=redis
+      - spring.redis.port=6379
+      - spring.cache.redis.time-to-live=60000
+      - spring.r2dbc.url=r2dbc:postgresql://db:5432/postgres
+      - spring.r2dbc.username=postgres
+      - spring.r2dbc.password=postgres
+      - SPRING_RABBITMQ_HOST=rabbit
+      - spring.devtools.remote.secret=mysecret
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+  worker-service:
+    image: worker-service:0.0.1-SNAPSHOT
+    depends_on:
+      - rabbit
+      - main-service
+    ports:
+      - "8081:8080"
+      - "5006:5006"
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbit
+      - spring.devtools.remote.secret=mysecret
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006
+  redis:
+    image: redis:alpine
+  db:
+    image: postgres:13.1-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+  rabbit:
+    image: rabbitmq:3-management

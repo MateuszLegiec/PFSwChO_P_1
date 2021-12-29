@@ -1,0 +1,40 @@
+version: '3'
+services:
+  ui:
+    image: 98021998/pfswcho-ui:0.0.1
+    ports:
+      - "80:80"
+    depends_on:
+      - main-service
+    environment:
+      NODE_ENV: production
+  main-service:
+    image: 98021998/pfswcho-main-service:0.0.1
+    depends_on:
+      - redis
+      - db
+      - rabbit
+    environment:
+      - spring.redis.host=redis
+      - spring.redis.port=6379
+      - spring.cache.redis.time-to-live=60000
+      - spring.r2dbc.url=r2dbc:postgresql://db:5432/postgres
+      - spring.r2dbc.username=postgres
+      - spring.r2dbc.password=postgres
+      - SPRING_RABBITMQ_HOST=rabbit
+  worker-service:
+    image: 98021998/pfswcho-worker-service:0.0.1
+    depends_on:
+      - rabbit
+      - main-service
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbit
+  redis:
+    image: redis:alpine
+  db:
+    image: postgres:13.1-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+  rabbit:
+    image: rabbitmq:3-management
